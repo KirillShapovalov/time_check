@@ -1,56 +1,54 @@
-from django.shortcuts import render
-import requests
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException
 from rest_framework import status
-import re
-from urllib.parse import urlparse
-
 from . import serializers
+from .utils import check_time, url
+import requests
 
 
 class TimeCheck(APIView):
     serializer_class = serializers.TimeCheckSerializer
-    time_api_url = 'http://worldtimeapi.org/api/timezone/Europe/Moscow'
-    url = 'http://127.0.0.1:8000/timecheck/'
-    delta = 500
 
-    def check_time(self, value):
-        response = requests.get(self.time_api_url)
-        if response.status_code == 200:
-            time = response.json().get('unixtime')
-            valid = abs(int(time) - int(value)) < self.delta
-            return bool(valid)
+    def get(self, request):
+        if 'checktime' in self.request.headers:
+            try:
+                time_value = self.request.headers.get('checktime')
+                res = check_time(time_value)
+                result = {
+                    'time from headers': bool(res),
+                    'time for check': int(time_value),
+                    'headers': self.request.headers
+                }
+                return Response(result)
+            except ValueError:
+                raise APIException('Entry data must be an integer!')
 
-    # def get(self):
-    #     headers = {
-    #         'check_time': '1627226722'
-    #     }
-    #     response = requests.get(self.url, headers=headers)
-    #     check_time = self.request.query_params.get('check_time')
-    #     r_head = response.request.headers['check_time']
-    #     res_head = self.check_time(r_head)
-    #     result_head = {
-    #         'time': bool(res_head)
-    #     }
-    #     return Response(result_head)
-
-    def get(self, time_check):
-        time_check = self.request.query_params.get('checktime')
-        res_par = self.check_time(time_check)
-        result_par = {
-            'time': bool(res_par)
-        }
-        return Response(result_par)
+        if self.request.query_params.get('checktime'):
+            try:
+                time_value = self.request.query_params.get('checktime')
+                res = check_time(time_value)
+                result = {
+                    'time from parameters': bool(res),
+                    'time for check': int(time_value)
+                }
+                return Response(result)
+            except ValueError:
+                raise APIException('Entry data must be an integer!')
+        else:
+            result = {
+                'data': 'no entry data'
+            }
+            return Response(result)
 
     def post(self, request):
         serializer = serializers.TimeCheckSerializer(data=request.data)
-        if serializer.is_valid():
+        if serializer.is_valid(raise_exception=True):
             time = serializer.data.get('time')
-            result = self.check_time(time)
+            result = check_time(time)
             response = {
-                'time': bool(result)
+                'time from post': bool(result),
+                'time for check': int(time)
             }
             return Response(response)
         else:
