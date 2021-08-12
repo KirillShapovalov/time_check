@@ -3,8 +3,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import APIException
 from rest_framework import status
 from . import serializers
-from .utils import check_time, url
-import requests
+from .utils import check_time
 
 
 class TimeCheck(APIView):
